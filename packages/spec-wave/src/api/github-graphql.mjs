@@ -140,20 +140,20 @@ export async function getProjectSnapshot(token, projectId) {
   `, { projectId });
   const project = result.node;
   if (!project) return null;
-  const etapa = project.fields.nodes.find(f => f && f.name === 'Etapa');
-  let etapaFieldId = null, stageOptions = null;
-  if (etapa) {
-    etapaFieldId = etapa.id;
-    stageOptions = {};
-    for (const o of etapa.options) stageOptions[o.name] = o.id;
+  // Mapa nome → {id, options{nome→id}} de todos os campos single-select do Project.
+  const fields = {};
+  for (const f of project.fields.nodes) {
+    if (!f || !f.name || !f.options) continue;
+    const options = {};
+    for (const o of f.options) options[o.name] = o.id;
+    fields[f.name] = { id: f.id, options };
   }
   return {
     id: project.id,
     number: project.number,
     url: project.url,
     title: project.title,
-    etapaFieldId,
-    stageOptions,
+    fields,
   };
 }
 
@@ -168,6 +168,19 @@ export async function addProjectItem(token, projectId, contentId) {
     }
   `, { projectId, contentId });
   return result.addProjectV2ItemById.item.id;
+}
+
+// Cria a relação de sub-issue nativa do GitHub (parent → child). Ambos os IDs
+// são node ids de Issue. Faz com que o filho exiba o pai e vice-versa na UI.
+export async function addSubIssue(token, parentIssueId, childIssueId) {
+  const client = makeClient(token);
+  await client(`
+    mutation AddSubIssue($issueId: ID!, $subIssueId: ID!) {
+      addSubIssue(input: { issueId: $issueId, subIssueId: $subIssueId }) {
+        subIssue { id number }
+      }
+    }
+  `, { issueId: parentIssueId, subIssueId: childIssueId });
 }
 
 // Define o valor de um campo SINGLE_SELECT para um item do Project.

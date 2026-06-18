@@ -1,7 +1,7 @@
 ---
 name: spec-wave
 description: "Use when the user wants to set up a spec-driven GitHub workflow, create a Feature issue, generate plan.md or spec.md, decompose a Feature into Stories/Tasks, or write RFC documentation. Implements the RFC-001 workflow with GitHub Projects v2, labels, and AI-powered GitHub Actions."
-argument-hint: "[info|setup|feature|plan|spec|ready|decompose|rfc] [target]"
+argument-hint: "[info|setup|issue|feature|plan|spec|ready|decompose|uninstall|rfc] [target]"
 user-invocable: true
 allowed-tools:
   - Bash(npx spec-wave *)
@@ -88,15 +88,32 @@ Esta skill é um **wrapper** da CLI `spec-wave`. Regra de ouro: **nunca rode um 
 | `--skip-files` | flag | Pula a criação dos workflows + issue templates. |
 | `--dry-run` | flag | Simula a configuração sem alterar nada. |
 
-### `spec-wave feature` — cria Feature, adiciona ao Project e move para 📥 Backlog
+### `spec-wave issue` — cria um work item tipado, opcionalmente como sub-issue, e adiciona ao board
 | Flag | Tipo | Descrição |
 |------|------|-----------|
-| `--title <title>` | string (obrigatório) | Título, **sem** o prefixo `[FEATURE]` (a CLI adiciona). |
-| `--body <text>` | string | Descrição da feature. |
-| `--priority <p>` | string | `P0`, `P1`, `P2` ou `P3` (vira label). |
+| `--title <title>` | string (obrigatório) | Título, **sem** o prefixo de tipo (a CLI adiciona, ex.: `[STORY]`). |
+| `--type <type>` | string | `epic`, `feature`, `story`, `task`, `bug`, `spike` ou `rfc`. Default: `feature`. |
+| `--parent <n>` | string | Número da issue pai — cria como **sub-issue** dela (relação nativa do GitHub). |
+| `--body <text>` | string | Descrição. |
+| `--priority <p>` | string | `P0`, `P1`, `P2` ou `P3`. |
 | `--area <area>` | string | `Frontend`, `Backend`, `Mobile`, `Infra`, `DevOps` ou `Data`. |
 
-> Este comando faz tudo: cria a issue (labels `[FEATURE]` + prioridade), adiciona ao Project e define a Etapa = 📥 Backlog. Lê o Project do `.spec-wave.json`. **Não use `gh issue create` direto** — ele não adiciona a issue ao board.
+> Faz tudo: cria a issue (label de tipo + prioridade), vincula ao parent como sub-issue, adiciona ao Project e define os campos **Etapa = 📥 Backlog**, **Work Item Type**, **Priority** e **Area**. Grava `Parent: #N` no corpo. Lê o Project do `.spec-wave.json`. **Não use `gh issue create` direto** — ele não adiciona ao board nem vincula o parent.
+
+### `spec-wave feature` — atalho de `issue --type feature`
+Mesmas flags do `issue` (exceto `--type`, fixo em `feature`). Mantido para o fluxo do RFC-001.
+
+### `spec-wave uninstall` — remove a configuração (mantém o Project)
+| Flag | Tipo | Descrição |
+|------|------|-----------|
+| `--repo <owner/repo>` | string | Repositório (default: lê do `.spec-wave.json`). |
+| `--skip-labels` | flag | Não remove as labels. |
+| `--skip-files` | flag | Não remove os arquivos `.github`. |
+| `--keep-config` | flag | Mantém o `.spec-wave.json` local. |
+| `--dry-run` | flag | Mostra o que seria removido sem alterar nada. |
+| `--yes` | flag | Não pede confirmação. |
+
+> Remove labels + arquivos `.github` + `.spec-wave.json`. **NUNCA apaga o GitHub Project** (preserva o histórico do board) — o usuário deve excluí-lo manualmente se quiser.
 
 ### `spec-wave info` — status de configuração do repo atual
 | Flag | Tipo | Descrição |
@@ -154,23 +171,40 @@ Configura o spec-wave no repositório. Você dirige o `init` com flags — **nun
 
 ---
 
-### `/spec-wave feature <descrição>`
+### `/spec-wave issue <tipo> <descrição>` · `/spec-wave feature <descrição>`
 
-Crie uma nova Feature já adicionada ao board em **📥 Backlog**.
+Crie um work item tipado (Epic/Feature/Story/Task/...) já adicionado ao board em **📥 Backlog**, opcionalmente como sub-issue de um parent.
+
+**Hierarquia típica:** Epic → Feature → Story → Task. Use `--parent <n>` para criar como sub-issue do nível acima (ex.: uma Story filha de uma Feature). O GitHub mostra o parent na issue filha e vice-versa; a CLI ainda grava `Parent: #N` no corpo.
 
 **Passos:**
-1. Pergunte ao usuário: título da feature (sem o prefixo `[FEATURE]`), descrição, área (Frontend/Backend/Mobile/Infra/DevOps/Data) e prioridade (P0/P1/P2/P3).
+1. Pergunte ao usuário: tipo (epic/feature/story/task/...), título (sem prefixo), descrição, área, prioridade, e se há uma issue **pai** (número).
 2. Execute o comando com os parâmetros coletados:
    ```bash
-   npx spec-wave feature \
+   npx spec-wave issue \
+     --type "<tipo>" \
      --title "<título>" \
      --body "<descrição>" \
      --area "<área>" \
-     --priority "<prioridade>"
+     --priority "<prioridade>" \
+     --parent "<número-do-pai>"   # opcional
    ```
-   A CLI cria a issue (labels `[FEATURE]` + prioridade), adiciona ao Project e define a Etapa = 📥 Backlog automaticamente — lendo o Project do `.spec-wave.json`. **Não use `gh issue create`** (ele não adiciona a issue ao board).
-3. Informe o número da issue criada (a CLI já confirma que está em 📥 Backlog).
-4. Oriente: "Quando quiser iniciar o planejamento técnico, mova o card para **📋 Plan** e use `/spec-wave plan <número>`"
+   Para Features, pode usar o atalho `npx spec-wave feature --title ...` (equivale a `--type feature`).
+   A CLI cria a issue (label de tipo + prioridade), vincula como sub-issue do parent, adiciona ao Project e define Etapa = 📥 Backlog + Work Item Type + Priority + Area. **Não use `gh issue create`** (não adiciona ao board nem vincula o parent).
+3. Informe o número criado e o vínculo com o pai (se houver).
+4. Para Features: "Quando quiser iniciar o planejamento, mova para **📋 Plan** e use `/spec-wave plan <número>`".
+
+---
+
+### `/spec-wave uninstall`
+
+Remove a configuração do spec-wave do repositório (labels, arquivos `.github`, `.spec-wave.json`). **Não apaga o GitHub Project.**
+
+**Passos:**
+1. Confirme com o usuário que ele quer remover (a ação remove labels e faz commits removendo os workflows).
+2. Mostre antes o que será removido com `npx spec-wave uninstall --dry-run`.
+3. Execute `npx spec-wave uninstall` (a CLI pede confirmação; use `--yes` só se o usuário já confirmou).
+4. Lembre o usuário de excluir o **GitHub Project** manualmente, se desejar — a CLI não o apaga de propósito.
 
 ---
 

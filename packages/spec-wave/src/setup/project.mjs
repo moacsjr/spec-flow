@@ -34,21 +34,19 @@ export async function setupProject(token, owner, repo, projectTitle, spinner) {
 
   // Sequential creation: the GitHub Projects v2 API raises "Position has already
   // been taken" when multiple SINGLE_SELECT fields are created concurrently.
-  let etapaFieldId, stageOptions;
+  // Capturamos id + opções de cada campo num mapa `fields` (nome → {id, options})
+  // para o .spec-wave.json — o comando `issue` usa isso para setar Etapa e Work Item Type.
+  const fields = {};
   for (const f of allFields) {
     spinner.message(`Criando campo "${f.name}"...`);
-    const created = await createSingleSelectField(token, projectId, f.name, f.options);
-    if (f.name === ETAPA_FIELD.name) {
-      etapaFieldId = created.id;
-      stageOptions = created.options;
-    }
+    fields[f.name] = await createSingleSelectField(token, projectId, f.name, f.options);
   }
   for (const f of textFields) {
     spinner.message(`Criando campo "${f.name}"...`);
     await createTextField(token, projectId, f.name);
   }
 
-  const result = { projectId, projectNumber, projectUrl, etapaFieldId, stageOptions };
+  const result = { projectId, projectNumber, projectUrl, fields };
 
   spinner.message('Vinculando projeto ao repositório...');
   try {

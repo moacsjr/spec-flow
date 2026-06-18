@@ -77,17 +77,18 @@ export async function refresh(options = {}) {
   }
   spinner.stop('Project consultado.');
 
+  // Remove campos legados (versões anteriores gravavam etapaFieldId/stageOptions soltos).
+  const { etapaFieldId: _e, stageOptions: _s, ...projectRest } = config.project;
   const updated = {
     ...config,
     version: pkg.version,
     project: {
-      ...config.project,
+      ...projectRest,
       title: snapshot.title,
       url: snapshot.url,
       id: snapshot.id,
       number: snapshot.number,
-      etapaFieldId: snapshot.etapaFieldId,
-      stageOptions: snapshot.stageOptions,
+      fields: snapshot.fields,
     },
     refreshedAt: new Date().toISOString(),
   };
@@ -100,15 +101,15 @@ export async function refresh(options = {}) {
     return;
   }
 
-  if (!snapshot.etapaFieldId) {
-    p.log.warn('Campo "Etapa" não encontrado no Project — `stageOptions` ficou vazio.');
+  const fieldNames = Object.keys(snapshot.fields || {});
+  if (!fieldNames.includes('Etapa')) {
+    p.log.warn('Campo "Etapa" não encontrado no Project.');
   }
 
   p.note(
-    `${chalk.dim('Project:')}     ${snapshot.title} (#${snapshot.number})\n` +
-    `${chalk.dim('Etapa field:')} ${snapshot.etapaFieldId ?? '—'}\n` +
-    `${chalk.dim('Etapas:')}      ${snapshot.stageOptions ? Object.keys(snapshot.stageOptions).length : 0} opções\n` +
-    `${chalk.dim('Versão CLI:')}  ${pkg.version}`,
+    `${chalk.dim('Project:')}    ${snapshot.title} (#${snapshot.number})\n` +
+    `${chalk.dim('Campos:')}     ${fieldNames.length ? fieldNames.join(', ') : '—'}\n` +
+    `${chalk.dim('Versão CLI:')} ${pkg.version}`,
     'Configuração atualizada'
   );
   p.outro(`${CONFIG_FILE} atualizado. Faça commit do arquivo para versioná-lo.`);

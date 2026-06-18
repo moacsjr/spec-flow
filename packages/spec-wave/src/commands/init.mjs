@@ -75,7 +75,7 @@ export async function init(options) {
   }
 
   // --- Phase 1: Project Board ---
-  let projectUrl, projectId, projectNumber, etapaFieldId, stageOptions;
+  let projectUrl, projectId, projectNumber, projectFields;
   if (options.skipProject) {
     p.log.info('Pulando criação do GitHub Project (--skip-project).');
   } else {
@@ -86,8 +86,7 @@ export async function init(options) {
       projectUrl = result.projectUrl;
       projectId = result.projectId;
       projectNumber = result.projectNumber;
-      etapaFieldId = result.etapaFieldId;
-      stageOptions = result.stageOptions;
+      projectFields = result.fields;
       projectSpinner.stop(`Projeto criado: ${chalk.cyan(projectUrl)}`);
       if (result.linkWarning) {
         p.log.warn(
@@ -152,8 +151,7 @@ export async function init(options) {
         url: projectUrl ?? null,
         id: projectId ?? null,
         number: projectNumber ?? null,
-        etapaFieldId: etapaFieldId ?? null,
-        stageOptions: stageOptions ?? null,
+        fields: projectFields ?? null,
       },
       initializedAt: new Date().toISOString(),
     };

@@ -74,6 +74,31 @@ export async function getIssue(token, owner, repo, issueNumber) {
   return res.data;
 }
 
+export async function deleteLabel(token, owner, repo, name) {
+  const octokit = makeOctokit(token);
+  try {
+    await octokit.rest.issues.deleteLabel({ owner, repo, name });
+    return true;
+  } catch (err) {
+    if (err.status === 404) return false; // label já não existe
+    throw err;
+  }
+}
+
+export async function deleteFile(token, owner, repo, filePath, message) {
+  const octokit = makeOctokit(token);
+  let sha;
+  try {
+    const existing = await octokit.rest.repos.getContent({ owner, repo, path: filePath });
+    sha = existing.data.sha;
+  } catch (err) {
+    if (err.status === 404) return false; // arquivo já não existe
+    throw err;
+  }
+  await octokit.rest.repos.deleteFile({ owner, repo, path: filePath, message, sha });
+  return true;
+}
+
 export async function addLabel(token, owner, repo, issueNumber, labelName) {
   const octokit = makeOctokit(token);
   await octokit.rest.issues.addLabels({

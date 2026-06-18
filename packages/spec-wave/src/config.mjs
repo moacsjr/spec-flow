@@ -74,6 +74,12 @@ export const CUSTOM_FIELDS = [
   },
 ];
 
+// Tipos de work item (Epic, Feature, Story, Task, Bug, Spike, RFC) — derivados do
+// campo "Work Item Type". Usados pelo comando `issue` para validar --type.
+export const WORK_ITEM_TYPES = CUSTOM_FIELDS
+  .find(f => f.name === 'Work Item Type')
+  .options.map(o => o.name);
+
 export const TYPE_LABELS = [
   { name: '[EPIC]',    color: '7B61FF', description: 'Objetivo estratégico'  },
   { name: '[FEATURE]', color: '0075CA', description: 'Capacidade funcional'  },
