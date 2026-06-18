@@ -22,6 +22,8 @@ program
   .option('--skip-project', 'Pula a criação do GitHub Project (use se já foi criado)')
   .option('--skip-labels', 'Pula a criação das labels')
   .option('--skip-files', 'Pula a criação dos arquivos de workflow')
+  .option('--provider <provider>', 'Provider de IA dos workflows: anthropic ou openrouter')
+  .option('--model <model>', 'Modelo de IA usado pelos workflows (ex.: anthropic/claude-3.7-sonnet)')
   .action(async (options) => {
     const { init } = await import('../src/commands/init.mjs');
     await init(options);

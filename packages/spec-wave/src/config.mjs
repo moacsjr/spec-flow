@@ -4,6 +4,35 @@
 // pelo comando `info` (e pela skill) para detectar se o spec-wave já foi configurado.
 export const CONFIG_FILE = '.spec-wave.json';
 
+// Providers de IA suportados pelos workflows (generate-plan/spec/decompose).
+// O provider e o modelo escolhidos no `init` são persistidos em .spec-wave.json
+// (bloco `ai`) e lidos em runtime por src/lib/claude.mjs. Cada provider declara
+// o secret do GitHub Actions de onde a chave é lida.
+export const AI_PROVIDERS = [
+  {
+    value: 'anthropic',
+    label: 'Anthropic (API direta)',
+    hint: 'Usa o secret ANTHROPIC_API_KEY',
+    secret: 'ANTHROPIC_API_KEY',
+    defaultModel: 'claude-sonnet-4-6',
+    modelHint: 'ex.: claude-sonnet-4-6, claude-opus-4-1',
+  },
+  {
+    value: 'openrouter',
+    label: 'OpenRouter (multi-modelo)',
+    hint: 'Usa o secret OPENROUTER_API_KEY',
+    secret: 'OPENROUTER_API_KEY',
+    defaultModel: 'anthropic/claude-3.7-sonnet',
+    modelHint: 'ex.: anthropic/claude-3.7-sonnet, openai/gpt-4o — veja openrouter.ai/models',
+  },
+];
+
+export const DEFAULT_PROVIDER = 'anthropic';
+
+export function getProvider(value) {
+  return AI_PROVIDERS.find(p => p.value === value);
+}
+
 export const STATUS_OPTIONS = [
   { name: '📥 Backlog',          color: 'GRAY'   },
   { name: '🎯 Priorizado',       color: 'BLUE'   },

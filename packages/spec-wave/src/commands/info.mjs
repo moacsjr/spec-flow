@@ -17,7 +17,7 @@ export async function info(options = {}) {
     }
     p.intro(chalk.bold('spec-wave info'));
     p.log.warn(`Este repositório ${chalk.bold('não foi inicializado')} (sem ${CONFIG_FILE}).`);
-    p.outro('Execute `npx spec-wave init` para configurar.');
+    p.outro('Execute `npx @spec-wave/cli init` para configurar.');
     return;
   }
 
@@ -45,6 +45,7 @@ export async function info(options = {}) {
     `${chalk.dim('Repositório:')} ${config.owner ?? '?'}/${config.repo ?? '?'}\n` +
     `${chalk.dim('Project:')}     ${config.project?.title ?? '—'}\n` +
     `${chalk.dim('URL:')}         ${config.project?.url ? chalk.cyan(config.project.url) : '—'}\n` +
+    `${chalk.dim('IA:')}          ${config.ai ? `${config.ai.provider} · ${config.ai.model}` : '—'}\n` +
     `${chalk.dim('Versão CLI:')}  ${config.version ?? '?'}\n` +
     `${chalk.dim('Criado em:')}   ${config.initializedAt ?? '?'}`,
     'Configuração'

@@ -9,7 +9,7 @@ import { setupProject } from '../setup/project.mjs';
 import { setupLabels } from '../setup/labels.mjs';
 import { setupFiles } from '../setup/files.mjs';
 import { upsertFile } from '../api/github-rest.mjs';
-import { CONFIG_FILE } from '../config.mjs';
+import { CONFIG_FILE, AI_PROVIDERS, getProvider, DEFAULT_PROVIDER } from '../config.mjs';
 
 const __dir = path.dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(path.join(__dir, '..', '..', 'package.json'), 'utf-8'));
@@ -51,7 +51,7 @@ export async function init(options) {
   }
 
   // --- Wizard ou flags ---
-  let owner, repo, projectTitle;
+  let owner, repo, projectTitle, provider, model;
   if (options.repo) {
     if (!options.repo.includes('/')) {
       p.log.error('Formato inválido para --repo. Use: owner/repo');
@@ -59,16 +59,28 @@ export async function init(options) {
     }
     [owner, repo] = options.repo.split('/');
     projectTitle = options.projectTitle ?? `${repo} — Spec Wave`;
+    provider = (options.provider ?? DEFAULT_PROVIDER).toLowerCase();
+    if (!getProvider(provider)) {
+      p.log.error(
+        `Provider inválido: ${provider}. Use um de: ${AI_PROVIDERS.map(pr => pr.value).join(', ')}`
+      );
+      process.exit(1);
+    }
+    model = options.model ?? getProvider(provider).defaultModel;
     p.log.info(`Repositório: ${owner}/${repo}`);
     p.log.info(`Projeto: ${projectTitle}`);
+    p.log.info(`IA: ${getProvider(provider).label} · modelo ${model}`);
   } else {
-    ({ owner, repo, projectTitle } = await runWizard());
+    ({ owner, repo, projectTitle, provider, model } = await runWizard());
   }
+
+  const providerMeta = getProvider(provider);
 
   if (options.dryRun) {
     p.log.info(chalk.yellow('Modo dry-run: nenhuma alteração será feita.'));
     p.log.info(`  Repositório: ${owner}/${repo}`);
     p.log.info(`  Projeto: ${projectTitle}`);
+    p.log.info(`  IA: ${providerMeta.label} · modelo ${model}`);
     p.log.info('  Fases: project board → labels → workflow files');
     p.outro('Dry-run concluído.');
     return;
@@ -153,6 +165,10 @@ export async function init(options) {
         number: projectNumber ?? null,
         fields: projectFields ?? null,
       },
+      ai: {
+        provider: providerMeta.value,
+        model,
+      },
       initializedAt: new Date().toISOString(),
     };
     await upsertFile(
@@ -182,7 +198,7 @@ export async function init(options) {
     `\n${chalk.green('✓')} spec-wave configurado com sucesso!\n\n` +
     (projectUrl ? `  Projeto: ${chalk.cyan(projectUrl)}\n\n` : '') +
     `  Próximos passos:\n` +
-    `  1. Adicione ANTHROPIC_API_KEY como secret no repositório\n` +
+    `  1. Adicione ${providerMeta.secret} como secret no repositório (provider: ${providerMeta.label})\n` +
     `  2. Configure o board view para agrupar por "Etapa"\n` +
     `  3. Crie uma Feature com o prefixo [FEATURE] no título\n` +
     `  4. Use a skill spec-wave para guiar o fluxo\n\n` +

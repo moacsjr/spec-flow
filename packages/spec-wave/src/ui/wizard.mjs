@@ -1,5 +1,6 @@
 import * as p from '@clack/prompts';
 import { execSync } from 'node:child_process';
+import { AI_PROVIDERS, getProvider, DEFAULT_PROVIDER } from '../config.mjs';
 
 export async function runWizard() {
   p.intro('spec-wave — configuração do fluxo spec-driven');
@@ -22,6 +23,25 @@ export async function runWizard() {
           defaultValue: `${results.repo?.split('/')[1] ?? 'projeto'} — Spec Wave`,
           placeholder: 'Meu Projeto — Spec Wave',
         }),
+
+      provider: () =>
+        p.select({
+          message: 'Qual provider de IA os workflows devem usar?',
+          options: AI_PROVIDERS.map(pr => ({ value: pr.value, label: pr.label, hint: pr.hint })),
+          initialValue: DEFAULT_PROVIDER,
+        }),
+
+      model: ({ results }) => {
+        const pr = getProvider(results.provider);
+        return p.text({
+          message: `Qual modelo de IA os workflows devem usar? (${pr.modelHint})`,
+          defaultValue: pr.defaultModel,
+          placeholder: pr.defaultModel,
+          validate: v => {
+            if (!v || !v.trim()) return 'Informe o modelo a ser usado.';
+          },
+        });
+      },
 
       triggerStrategy: () =>
         p.select({
@@ -67,7 +87,13 @@ export async function runWizard() {
   }
 
   const [owner, repo] = answers.repo.split('/');
-  return { owner, repo, projectTitle: answers.projectTitle };
+  return {
+    owner,
+    repo,
+    projectTitle: answers.projectTitle,
+    provider: answers.provider,
+    model: answers.model.trim(),
+  };
 }
 
 function detectRepo() {
