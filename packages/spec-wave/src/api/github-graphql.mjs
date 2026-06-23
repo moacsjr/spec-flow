@@ -183,6 +183,56 @@ export async function addSubIssue(token, parentIssueId, childIssueId) {
   `, { issueId: parentIssueId, subIssueId: childIssueId });
 }
 
+// Lista as sub-issues de uma issue (pelo node id da issue pai). Retorna
+// [{ number, title, body, nodeId, labels: [nome...] }]. Usado pelo comando
+// `implement` para coletar as Tasks de uma Story.
+export async function listSubIssues(token, issueNodeId) {
+  const client = makeClient(token);
+  const result = await client(`
+    query SubIssues($id: ID!) {
+      node(id: $id) {
+        ... on Issue {
+          subIssues(first: 100) {
+            nodes {
+              id
+              number
+              title
+              body
+              labels(first: 20) { nodes { name } }
+            }
+          }
+        }
+      }
+    }
+  `, { id: issueNodeId });
+  const nodes = result.node?.subIssues?.nodes || [];
+  return nodes.map(n => ({
+    number: n.number,
+    title: n.title,
+    body: n.body || '',
+    nodeId: n.id,
+    labels: (n.labels?.nodes || []).map(l => l.name),
+  }));
+}
+
+// Lê o parent (issue pai) de uma sub-issue. Retorna { number, title, nodeId }
+// ou null se a issue não tiver pai. Usado para subir a cadeia Task→Story→Feature.
+export async function getIssueParent(token, issueNodeId) {
+  const client = makeClient(token);
+  const result = await client(`
+    query IssueParent($id: ID!) {
+      node(id: $id) {
+        ... on Issue {
+          parent { id number title }
+        }
+      }
+    }
+  `, { id: issueNodeId });
+  const parent = result.node?.parent;
+  if (!parent) return null;
+  return { number: parent.number, title: parent.title, nodeId: parent.id };
+}
+
 // Define o valor de um campo SINGLE_SELECT para um item do Project.
 export async function setItemSingleSelect(token, projectId, itemId, fieldId, optionId) {
   const client = makeClient(token);

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
 import { resolveToken } from '../api/auth.mjs';
-import { getIssue, removeLabel, commentOnIssue } from '../api/github-rest.mjs';
+import { getIssue, createIssue, removeLabel, commentOnIssue } from '../api/github-rest.mjs';
+import { addSubIssue } from '../api/github-graphql.mjs';
 import { generateDocument } from '../lib/claude.mjs';
 import { slugify } from '../lib/slugify.mjs';
 
@@ -12,11 +12,12 @@ Responda APENAS com JSON válido neste formato:
 {
   "stories": [
     {
-      "title": "[STORY] Título da story no formato 'Como <perfil>, quero <objetivo>, para <benefício>'",
-      "body": "Descrição da story com contexto e critérios de aceite relevantes",
+      "title": "Título curto da story (apenas a parte 'quero', sem prefixo)",
+      "userStory": "Como <perfil>, quero <objetivo>, para <benefício>",
+      "body": "Descrição complementar da story com contexto e critérios de aceite relevantes",
       "tasks": [
         {
-          "title": "[TASK] Título técnico da task",
+          "title": "Título técnico curto da task (sem prefixo)",
           "body": "Descrição técnica detalhada"
         }
       ]
@@ -25,9 +26,11 @@ Responda APENAS com JSON válido neste formato:
 }
 
 Regras:
+- "title" deve ser CURTO (máx. ~60 caracteres): apenas a parte "quero" da user story, sem o "Como" nem o "para", e sem prefixo. Ex.: "visualizar meus repositórios em layout responsivo"
+- "userStory" deve trazer a user story completa no formato "Como <perfil>, quero <objetivo>, para <benefício>"
+- "body" é texto complementar (contexto, critérios de aceite); não repita o título
 - Cada Story deve ter 2–5 Tasks associadas
-- Stories devem seguir o formato de User Story
-- Tasks devem ser atividades técnicas concretas
+- Tasks devem ser atividades técnicas concretas, com "title" curto e "body" detalhado
 - Gere entre 3 e 7 Stories por Feature`;
 
 export async function decompose({ issueNumber }) {
@@ -75,26 +78,41 @@ export async function decompose({ issueNumber }) {
     decomposition = JSON.parse(jsonMatch[0]);
   }
 
+  // node id da Feature — necessário para vincular as stories como sub-issues.
+  const featureNodeId = issue.node_id;
+
   const created = [];
 
   for (const story of decomposition.stories) {
     console.log(`Criando story: ${story.title}`);
-    const storyOutput = execFileSync(
-      'gh',
-      ['issue', 'create', '--title', story.title, '--body', story.body, '--label', '[STORY]'],
-      { encoding: 'utf-8' }
-    ).trim();
-    const storyUrl = storyOutput.trim();
-    created.push({ type: 'story', title: story.title, url: storyUrl });
+    const storyTitle = `[STORY] ${story.title}`;
+    // Corpo: user story completa (Como/quero/para) + texto complementar.
+    const storyBody = [story.userStory, story.body]
+      .map(s => (s || '').trim())
+      .filter(Boolean)
+      .join('\n\n') || '_(sem descrição)_';
+    const createdStory = await createIssue(token, owner, repo, storyTitle, storyBody, ['[STORY]']);
+    created.push({ type: 'story', title: storyTitle, url: createdStory.url });
+
+    // Vincula a story como sub-issue da Feature (relação nativa do GitHub).
+    try {
+      await addSubIssue(token, featureNodeId, createdStory.nodeId);
+    } catch (err) {
+      console.warn(`  Story #${createdStory.number} criada, mas falhou ao vincular à Feature: ${err.message}`);
+    }
 
     for (const task of story.tasks || []) {
       console.log(`  Criando task: ${task.title}`);
-      const taskBody = `${task.body}\n\n_Story pai: ${storyUrl}_`;
-      execFileSync(
-        'gh',
-        ['issue', 'create', '--title', task.title, '--body', taskBody, '--label', '[TASK]'],
-        { encoding: 'utf-8' }
-      );
+      const taskTitle = `[TASK] ${task.title}`;
+      const taskBody = `${task.body}\n\n_Story pai: ${createdStory.url}_`;
+      const createdTask = await createIssue(token, owner, repo, taskTitle, taskBody, ['[TASK]']);
+
+      // Vincula a task como sub-issue da Story.
+      try {
+        await addSubIssue(token, createdStory.nodeId, createdTask.nodeId);
+      } catch (err) {
+        console.warn(`    Task #${createdTask.number} criada, mas falhou ao vincular à Story: ${err.message}`);
+      }
     }
   }
 

@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolveToken } from '../api/auth.mjs';
 import { getIssue, removeLabel, commentOnIssue } from '../api/github-rest.mjs';
 import { generateDocument } from '../lib/claude.mjs';
@@ -16,7 +16,6 @@ O spec deve conter exatamente estas seções em português:
 # Dependências
 
 Para cada seção, seja específico e detalhado. Os Critérios de Aceite devem estar no formato de checklist markdown (- [ ] item).
-Se um plano técnico (plan.md) for fornecido, use-o para enriquecer os detalhes técnicos relevantes.
 Responda APENAS com o conteúdo do spec.md, sem texto adicional.`;
 
 export async function generateSpec({ issueNumber }) {
@@ -37,15 +36,7 @@ export async function generateSpec({ issueNumber }) {
   const featureDir = `docs/features/${slug}`;
   const filePath = `${featureDir}/spec.md`;
 
-  // Read existing plan.md if available
-  const planPath = `${featureDir}/plan.md`;
-  const planContent = existsSync(planPath) ? readFileSync(planPath, 'utf-8') : null;
-
-  const userContent = [
-    `Feature: ${issue.title}`,
-    `\nDescrição:\n${issue.body || '(sem descrição)'}`,
-    planContent ? `\nPlano Técnico (plan.md):\n${planContent}` : '',
-  ].join('');
+  const userContent = `Feature: ${issue.title}\n\nDescrição:\n${issue.body || '(sem descrição)'}`;
 
   console.log(`Gerando spec.md para: ${issue.title}`);
   const content = await generateDocument(SYSTEM_PROMPT, userContent);
@@ -69,8 +60,8 @@ export async function generateSpec({ issueNumber }) {
     token, owner, repo, parseInt(issueNumber, 10),
     `📋 **spec.md gerado automaticamente!**\n\n` +
     `📄 Arquivo: [\`${filePath}\`](${filePath})\n\n` +
-    `Revise a especificação e, quando estiver pronto, mova o card para **✅ Ready** ou use:\n` +
-    `\`\`\`\ngh issue edit ${issueNumber} --add-label "spec-wave:ready"\n\`\`\``
+    `Revise a especificação e, quando estiver pronto, gere o plano técnico: mova o card para **📋 Plan** ou use:\n` +
+    `\`\`\`\ngh issue edit ${issueNumber} --add-label "spec-wave:plan"\n\`\`\``
   );
 
   console.log(`spec.md criado em: ${filePath}`);

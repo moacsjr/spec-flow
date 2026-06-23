@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { resolveToken } from '../api/auth.mjs';
 import { getIssue, removeLabel, commentOnIssue } from '../api/github-rest.mjs';
 import { generateDocument } from '../lib/claude.mjs';
@@ -17,6 +17,7 @@ O plano deve conter exatamente estas seções em português:
 # Estimativa (Story Points)
 
 Para cada seção, forneça detalhes técnicos concretos e acionáveis baseados na descrição da Feature.
+Use a especificação funcional (spec.md) fornecida para embasar as decisões técnicas, quando disponível.
 A estimativa de Story Points deve usar a sequência de Fibonacci: 1, 2, 3, 5, 8, 13, 21.
 Responda APENAS com o conteúdo do plan.md, sem texto adicional.`;
 
@@ -38,11 +39,18 @@ export async function generatePlan({ issueNumber }) {
   const featureDir = `docs/features/${slug}`;
   const filePath = `${featureDir}/plan.md`;
 
+  // Read existing spec.md if available (spec é gerada antes do plano)
+  const specPath = `${featureDir}/spec.md`;
+  const specContent = existsSync(specPath) ? readFileSync(specPath, 'utf-8') : null;
+
+  const userContent = [
+    `Feature: ${issue.title}`,
+    `\nDescrição:\n${issue.body || '(sem descrição)'}`,
+    specContent ? `\nEspecificação Funcional (spec.md):\n${specContent}` : '',
+  ].join('');
+
   console.log(`Gerando plan.md para: ${issue.title}`);
-  const content = await generateDocument(
-    SYSTEM_PROMPT,
-    `Feature: ${issue.title}\n\nDescrição:\n${issue.body || '(sem descrição)'}`
-  );
+  const content = await generateDocument(SYSTEM_PROMPT, userContent);
 
   mkdirSync(featureDir, { recursive: true });
   writeFileSync(filePath, content, 'utf-8');
@@ -63,8 +71,8 @@ export async function generatePlan({ issueNumber }) {
     token, owner, repo, parseInt(issueNumber, 10),
     `📋 **plan.md gerado automaticamente!**\n\n` +
     `📄 Arquivo: [\`${filePath}\`](${filePath})\n\n` +
-    `Revise o plano e, quando estiver pronto, mova o card para a coluna **📋 Spec** ou use:\n` +
-    `\`\`\`\ngh issue edit ${issueNumber} --add-label "spec-wave:spec"\n\`\`\``
+    `Revise o plano e, quando estiver pronto, valide a Feature: mova o card para **✅ Ready** ou use:\n` +
+    `\`\`\`\ngh issue edit ${issueNumber} --add-label "spec-wave:ready"\n\`\`\``
   );
 
   console.log(`plan.md criado em: ${filePath}`);

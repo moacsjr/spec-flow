@@ -36,8 +36,8 @@ export function getProvider(value) {
 export const STATUS_OPTIONS = [
   { name: '📥 Backlog',          color: 'GRAY'   },
   { name: '🎯 Priorizado',       color: 'BLUE'   },
-  { name: '📋 Plan',             color: 'YELLOW' },
   { name: '📋 Spec',             color: 'YELLOW' },
+  { name: '📋 Plan',             color: 'YELLOW' },
   { name: '✅ Ready',            color: 'GREEN'  },
   { name: '📋 Backlog Técnico',  color: 'BLUE'   },
   { name: '🚧 Desenvolvimento',  color: 'ORANGE' },
@@ -127,8 +127,8 @@ export const PRIORITY_LABELS = [
 ];
 
 export const TRIGGER_LABELS = [
-  { name: 'spec-wave:plan',      color: 'BFD4F2', description: 'Gerar plan.md via GitHub Action'     },
   { name: 'spec-wave:spec',      color: 'BFD4F2', description: 'Gerar spec.md via GitHub Action'     },
+  { name: 'spec-wave:plan',      color: 'BFD4F2', description: 'Gerar plan.md via GitHub Action'     },
   { name: 'spec-wave:ready',     color: '0E8A16', description: 'Validar spec+plan e mover para Ready' },
   { name: 'spec-wave:decompose', color: 'BFD4F2', description: 'Decompor em Stories e Tasks'         },
 ];

@@ -124,4 +124,15 @@ program
     await decompose(options).catch(err => { console.error(err.message); process.exit(1); });
   });
 
+program
+  .command('implement')
+  .description('Aciona o spec-kit implement para uma Story (todas as tasks) ou uma Task')
+  .argument('<issue>', 'Número da issue (Story ou Task), ex.: 12 ou #12')
+  .option('--feature-dir <path>', 'Caminho do docs/features/<slug> (sobrescreve a resolução automática)')
+  .option('--dry-run', 'Monta o contexto e imprime o comando sem executar o spec-kit')
+  .action(async (issue, options) => {
+    const { implement } = await import('../src/commands/implement.mjs');
+    await implement({ issue, ...options }).catch(err => { console.error(err.message); process.exit(1); });
+  });
+
 program.parse();

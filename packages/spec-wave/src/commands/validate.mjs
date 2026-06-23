@@ -67,8 +67,8 @@ export async function validate({ issueNumber }) {
   await commentOnIssue(
     token, owner, repo, parseInt(issueNumber, 10),
     `✅ **Validação concluída com sucesso!**\n\n` +
-    `- [\`${planPath}\`](${planPath}) ✓\n` +
-    `- [\`${specPath}\`](${specPath}) ✓\n\n` +
+    `- [\`${specPath}\`](${specPath}) ✓\n` +
+    `- [\`${planPath}\`](${planPath}) ✓\n\n` +
     `A Feature está pronta para decomposição. Mova o card para **📋 Backlog Técnico** ou use:\n` +
     `\`\`\`\ngh issue edit ${issueNumber} --add-label "spec-wave:decompose"\n\`\`\``
   );
