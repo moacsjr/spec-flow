@@ -1,7 +1,7 @@
 ---
 name: spec-wave
-description: "Use when the user wants to set up a spec-driven GitHub workflow, create a Feature issue, generate plan.md or spec.md, decompose a Feature into Stories/Tasks, or write RFC documentation. Implements the RFC-001 workflow with GitHub Projects v2, labels, and AI-powered GitHub Actions."
-argument-hint: "[info|setup|issue|feature|plan|spec|ready|decompose|uninstall|rfc] [target]"
+description: "Use when the user wants to set up a spec-driven GitHub workflow, create a Feature issue, generate spec.md or plan.md, decompose a Feature into Stories/Tasks, or write RFC documentation. Implements the RFC-001 workflow with GitHub Projects v2, labels, and AI-powered GitHub Actions."
+argument-hint: "[info|setup|issue|feature|spec|plan|ready|decompose|implement|uninstall|rfc] [target]"
 user-invocable: true
 allowed-tools:
   - Bash(npx spec-wave *)
@@ -61,16 +61,18 @@ Exceção: se o usuário pedir explicitamente para revisar ou melhorar um docume
 ## Fluxo Kanban
 
 ```
-📥 Backlog → 🎯 Priorizado → 📋 Plan → 📋 Spec → ✅ Ready
+📥 Backlog → 🎯 Priorizado → 📋 Spec → 📋 Plan → ✅ Ready
 → 📋 Backlog Técnico → 🚧 Desenvolvimento → 👀 Code Review
 → 🧪 QA → 📋 Homologação → 🚀 Deploy → 🎉 Done
 ```
 
 Labels de gatilho:
-- `spec-wave:plan` → dispara `generate-plan.yml` → gera `plan.md`
-- `spec-wave:spec` → dispara `generate-spec.yml` → gera `spec.md`
+- `spec-wave:spec` → dispara `generate-spec.yml` → gera `spec.md` (especificação funcional, primeiro)
+- `spec-wave:plan` → dispara `generate-plan.yml` → gera `plan.md` (plano técnico, a partir da spec)
 - `spec-wave:ready` → dispara `validate.yml` → valida ambos os arquivos
 - `spec-wave:decompose` → dispara `decompose.yml` → gera Stories e Tasks
+
+A etapa **🚧 Desenvolvimento** é coberta pelo comando **local** `spec-wave implement <número>` (não é uma label/Action): lê uma Story ou Task e aciona o spec-kit para implementar. Veja `/spec-wave implement`.
 
 ---
 
@@ -134,6 +136,15 @@ Mesmas flags do `issue` (exceto `--type`, fixo em `feature`). Mantido para o flu
 
 > ⚠️ Esses quatro comandos são executados pelos **GitHub Actions** (disparados por labels), **não** pela skill diretamente. Veja a *Regra fundamental*: para gerar plan/spec/decompor, adicione a **label** correspondente — não rode o comando à mão (a não ser para debug local).
 
+### `spec-wave implement` — aciona o spec-kit para uma Story ou Task (comando LOCAL)
+| Flag/Arg | Tipo | Descrição |
+|----------|------|-----------|
+| `<issue>` | string (obrigatório) | Número da issue (Story ou Task), ex.: `12` ou `#12`. Argumento posicional. |
+| `--feature-dir <path>` | string | Caminho `docs/features/<slug>` para anexar `spec.md`/`plan.md` como contexto (sobrescreve a resolução automática). |
+| `--dry-run` | flag | Monta o contexto e imprime o comando do spec-kit **sem executar**. |
+
+> Diferente dos quatro acima, `implement` roda **localmente** (lê `.spec-wave.json`, como `issue`), não por Action. Detecta o tipo da issue: **Story** → coleta todas as Tasks (sub-issues) e aciona o spec-kit uma única vez; **Task** → só aquela task. Monta o contexto em `.spec-wave/implement-<n>.md` e chama o comando configurado em `specKit.command` (no `.spec-wave.json`) ou na env `SPEC_WAVE_IMPLEMENT_CMD`. Placeholders disponíveis no template: `{tasksFile} {specFile} {planFile} {issue} {type} {title}`. Se nada estiver configurado, ele apenas monta o contexto e mostra como configurar (não executa). O contexto já inclui uma instrução para o agente mover a Story e as Tasks para **🚧 Desenvolvimento** (in progress) ao iniciar.
+
 ---
 
 ## Sub-comandos
@@ -192,7 +203,7 @@ Crie um work item tipado (Epic/Feature/Story/Task/...) já adicionado ao board e
    Para Features, pode usar o atalho `npx spec-wave feature --title ...` (equivale a `--type feature`).
    A CLI cria a issue (label de tipo + prioridade), vincula como sub-issue do parent, adiciona ao Project e define Etapa = 📥 Backlog + Work Item Type + Priority + Area. **Não use `gh issue create`** (não adiciona ao board nem vincula o parent).
 3. Informe o número criado e o vínculo com o pai (se houver).
-4. Para Features: "Quando quiser iniciar o planejamento, mova para **📋 Plan** e use `/spec-wave plan <número>`".
+4. Para Features: "Quando quiser iniciar, mova para **📋 Spec** e use `/spec-wave spec <número>` para gerar a especificação funcional (o plano técnico vem depois)".
 
 ---
 
@@ -208,32 +219,34 @@ Remove a configuração do spec-wave do repositório (labels, arquivos `.github`
 
 ---
 
-### `/spec-wave plan <número-da-issue>`
+### `/spec-wave spec <número-da-issue>`
 
-Inicia a geração do plano técnico para uma Feature.
+Inicia a geração da **especificação funcional** para uma Feature. É o **primeiro** passo do ciclo de documentos (antes do plano técnico).
 
 **Passos:**
 1. Adicione a label de gatilho:
    ```bash
-   gh issue edit <número> --add-label "spec-wave:plan"
+   gh issue edit <número> --add-label "spec-wave:spec"
    ```
-2. Informe: "Label `spec-wave:plan` adicionada. O GitHub Action `generate-plan.yml` irá gerar o `plan.md` automaticamente. Acompanhe em: Actions → Generate Plan."
-3. Após a conclusão (cheque comentários na issue ou aguarde confirmação do usuário), ofereça revisar o plan.md gerado em `docs/features/<slug>/plan.md`.
+2. Informe: "Label `spec-wave:spec` adicionada. O GitHub Action `generate-spec.yml` irá gerar o `spec.md` automaticamente."
+3. Após a conclusão, ofereça revisar o spec.md gerado em `docs/features/<slug>/spec.md`.
+4. Próximo passo: gerar o plano técnico — mova para **📋 Plan** e use `/spec-wave plan <número>`.
 
 ---
 
-### `/spec-wave spec <número-da-issue>`
+### `/spec-wave plan <número-da-issue>`
 
-Inicia a geração da especificação funcional para uma Feature.
+Inicia a geração do **plano técnico** para uma Feature, derivado da especificação. É o **segundo** passo (a spec deve existir antes).
 
 **Passos:**
-1. Verifique se plan.md já existe (o spec usa o plano como contexto)
+1. Verifique se `spec.md` já existe em `docs/features/<slug>/` (o plano usa a especificação funcional como contexto). Se não existir, gere a spec primeiro com `/spec-wave spec <número>`.
 2. Adicione a label de gatilho:
    ```bash
-   gh issue edit <número> --add-label "spec-wave:spec"
+   gh issue edit <número> --add-label "spec-wave:plan"
    ```
-3. Informe: "Label `spec-wave:spec` adicionada. O GitHub Action `generate-spec.yml` irá gerar o `spec.md` automaticamente."
-4. Após a conclusão, ofereça revisar o spec.md gerado em `docs/features/<slug>/spec.md`.
+3. Informe: "Label `spec-wave:plan` adicionada. O GitHub Action `generate-plan.yml` irá gerar o `plan.md` automaticamente. Acompanhe em: Actions → Generate Plan."
+4. Após a conclusão (cheque comentários na issue ou aguarde confirmação do usuário), ofereça revisar o plan.md gerado em `docs/features/<slug>/plan.md`.
+5. Próximo passo: validar a Feature — mova para **✅ Ready** e use `/spec-wave ready <número>`.
 
 ---
 
@@ -267,6 +280,30 @@ Decompõe uma Feature em Stories e Tasks automaticamente.
 
 ---
 
+### `/spec-wave implement <número-da-issue>`
+
+Aciona o spec-kit para implementar uma **Story** (todas as suas Tasks) ou uma **Task** isolada. Comando **local** (etapa 🚧 Desenvolvimento) — não usa label/Action.
+
+**Pré-requisitos:** o repositório atual precisa estar inicializado (`.spec-wave.json` presente) e a issue deve ser do tipo Story ou Task. Para executar de fato (fora do `--dry-run`), o spec-kit precisa estar configurado via `specKit.command` no `.spec-wave.json` ou a env `SPEC_WAVE_IMPLEMENT_CMD`.
+
+**Passos:**
+1. Confirme que há `.spec-wave.json` no repo (senão, oriente `/spec-wave setup`).
+2. **Sempre comece com `--dry-run`** para inspecionar o que será feito — detecção do tipo, lista de Tasks coletadas (no caso de Story) e o comando do spec-kit que seria executado:
+   ```bash
+   npx spec-wave implement <número> --dry-run
+   ```
+3. Mostre ao usuário o contexto montado em `.spec-wave/implement-<número>.md` e o comando.
+4. Se o usuário aprovar e o spec-kit estiver configurado, rode sem `--dry-run`:
+   ```bash
+   npx spec-wave implement <número>
+   ```
+   - Se o spec-kit **não** estiver configurado, o comando só monta o contexto e mostra como configurar (`specKit.command` / `SPEC_WAVE_IMPLEMENT_CMD`). Ajude o usuário a definir o template (placeholders: `{tasksFile} {specFile} {planFile} {issue} {type} {title}`).
+   - Use `--feature-dir docs/features/<slug>` se a resolução automática da Feature falhar (a skill avisa com warning) e você quiser anexar `spec.md`/`plan.md` como contexto.
+5. Se a issue **não** for Story nem Task (ex.: Feature, Bug), o comando recusa — oriente o usuário: Features se decompõem (`/spec-wave decompose`); implemente as Stories/Tasks resultantes.
+6. Após implementar: oriente revisar as mudanças, abrir o PR e mover o card para **👀 Code Review**.
+
+---
+
 ### `/spec-wave rfc <tópico>`
 
 Crie um documento RFC seguindo a estrutura do RFC-001.
@@ -296,8 +333,8 @@ Crie um documento RFC seguindo a estrutura do RFC-001.
 docs/
   features/
     <slug-da-feature>/
-      plan.md    ← gerado pelo GitHub Action quando spec-wave:plan é adicionado
-      spec.md    ← gerado pelo GitHub Action quando spec-wave:spec é adicionado
+      spec.md    ← gerado pelo GitHub Action quando spec-wave:spec é adicionado (1º)
+      plan.md    ← gerado pelo GitHub Action quando spec-wave:plan é adicionado (2º, usa a spec)
 ```
 
 O slug é gerado a partir do título da issue: `[FEATURE] Cadastro de Pedidos com PIX` → `cadastro-de-pedidos-com-pix`
