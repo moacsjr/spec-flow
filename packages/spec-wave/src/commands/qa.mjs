@@ -64,6 +64,7 @@ async function setQA(token, project, etapaField, statusField, nodeId) {
 
 export async function qa({ prNumber }) {
   const token = await resolveToken();
+  const projectToken = process.env.PROJECT_TOKEN || token;
   const [envOwner, envRepo] = (process.env.GITHUB_REPOSITORY || '').split('/');
   const cfgPath = path.join(process.cwd(), CONFIG_FILE);
   let cfg = {};
@@ -103,8 +104,8 @@ export async function qa({ prNumber }) {
     return;
   }
 
-  const etapaField = await resolveField(token, project, 'Etapa').catch(() => null);
-  const statusField = await resolveField(token, project, 'Status').catch(() => null);
+  const etapaField = await resolveField(projectToken, project, 'Etapa').catch(() => null);
+  const statusField = await resolveField(projectToken, project, 'Status').catch(() => null);
 
   const seen = new Set();
   const updated = [];
@@ -114,7 +115,7 @@ export async function qa({ prNumber }) {
     if (!feature || seen.has(feature.number)) continue;
     seen.add(feature.number);
     try {
-      await setQA(token, project, etapaField, statusField, feature.node_id);
+      await setQA(projectToken, project, etapaField, statusField, feature.node_id);
       updated.push(`#${feature.number} ${feature.title}`);
       console.log(`Feature #${feature.number} → "${QA_STAGE}" / Status "${TODO_STATUS}".`);
     } catch (err) {

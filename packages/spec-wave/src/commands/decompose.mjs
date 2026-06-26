@@ -65,6 +65,9 @@ Regras:
 
 export async function decompose({ issueNumber }) {
   const token = await resolveToken();
+  // PROJECT_TOKEN deve ter scope "project" para atualizar GitHub Projects v2.
+  // Fallback para GITHUB_TOKEN (só funciona em repos pessoais sem org restrictions).
+  const projectToken = process.env.PROJECT_TOKEN || token;
   const [owner, repo] = (process.env.GITHUB_REPOSITORY || '').split('/');
 
   if (!owner || !repo) {
@@ -83,7 +86,7 @@ export async function decompose({ issueNumber }) {
   let statusField = null;
   if (project?.id && READY_STAGE) {
     try {
-      statusField = await resolveStatusField(token, project);
+      statusField = await resolveStatusField(projectToken, project);
     } catch (err) {
       console.warn(`Não foi possível resolver campo Status do board: ${err.message}`);
     }
@@ -144,7 +147,7 @@ export async function decompose({ issueNumber }) {
 
     // Move story para Ready no board.
     try {
-      await moveToStage(token, project, statusField, createdStory.nodeId, READY_STAGE);
+      await moveToStage(projectToken, project, statusField, createdStory.nodeId, READY_STAGE);
     } catch (err) {
       console.warn(`  Falha ao mover story #${createdStory.number} para "${READY_STAGE}": ${err.message}`);
     }
@@ -164,7 +167,7 @@ export async function decompose({ issueNumber }) {
 
       // Move task para Ready no board.
       try {
-        await moveToStage(token, project, statusField, createdTask.nodeId, READY_STAGE);
+        await moveToStage(projectToken, project, statusField, createdTask.nodeId, READY_STAGE);
       } catch (err) {
         console.warn(`    Falha ao mover task #${createdTask.number} para "${READY_STAGE}": ${err.message}`);
       }
@@ -173,7 +176,7 @@ export async function decompose({ issueNumber }) {
 
   // Move a própria Feature para Ready no board.
   try {
-    await moveToStage(token, project, statusField, featureNodeId, READY_STAGE);
+    await moveToStage(projectToken, project, statusField, featureNodeId, READY_STAGE);
     if (project?.id && statusField) console.log(`Feature movida para "${READY_STAGE}" no board.`);
   } catch (err) {
     console.warn(`Falha ao mover Feature para "${READY_STAGE}": ${err.message}`);

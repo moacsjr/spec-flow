@@ -69,6 +69,7 @@ async function setCodeReview(token, project, etapaField, statusField, nodeId) {
 
 export async function codeReview({ prNumber }) {
   const token = await resolveToken();
+  const projectToken = process.env.PROJECT_TOKEN || token;
   const [envOwner, envRepo] = (process.env.GITHUB_REPOSITORY || '').split('/');
   const cfgPath = path.join(process.cwd(), CONFIG_FILE);
   let cfg = {};
@@ -110,8 +111,8 @@ export async function codeReview({ prNumber }) {
   }
 
   // Resolve campos uma vez, reutiliza em todas as Features.
-  const etapaField = await resolveField(token, project, 'Etapa').catch(() => null);
-  const statusField = await resolveField(token, project, 'Status').catch(() => null);
+  const etapaField = await resolveField(projectToken, project, 'Etapa').catch(() => null);
+  const statusField = await resolveField(projectToken, project, 'Status').catch(() => null);
 
   const seen = new Set();
   const updated = [];
@@ -121,7 +122,7 @@ export async function codeReview({ prNumber }) {
     if (!feature || seen.has(feature.number)) continue;
     seen.add(feature.number);
     try {
-      await setCodeReview(token, project, etapaField, statusField, feature.node_id);
+      await setCodeReview(projectToken, project, etapaField, statusField, feature.node_id);
       updated.push(`#${feature.number} ${feature.title}`);
       console.log(`Feature #${feature.number} → "${CODE_REVIEW_STAGE}" / Status "${TODO_STATUS}".`);
     } catch (err) {
