@@ -129,10 +129,11 @@ export const PRIORITY_LABELS = [
 ];
 
 export const TRIGGER_LABELS = [
-  { name: 'spec-wave:spec',      color: 'BFD4F2', description: 'Gerar spec.md via GitHub Action'     },
-  { name: 'spec-wave:plan',      color: 'BFD4F2', description: 'Gerar plan.md via GitHub Action'     },
-  { name: 'spec-wave:ready',     color: '0E8A16', description: 'Validar spec+plan e mover para Ready' },
-  { name: 'spec-wave:decompose', color: 'BFD4F2', description: 'Decompor em Stories e Tasks'         },
+  { name: 'spec-wave:spec',          color: 'BFD4F2', description: 'Gerar spec.md via GitHub Action'      },
+  { name: 'spec-wave:plan',          color: 'BFD4F2', description: 'Gerar plan.md via GitHub Action'      },
+  { name: 'spec-wave:ready',         color: '0E8A16', description: 'Validar spec+plan e mover para Ready'  },
+  { name: 'spec-wave:plan-approved', color: '0E8A16', description: 'Spec+plan validados com sucesso'       },
+  { name: 'spec-wave:decompose',     color: 'BFD4F2', description: 'Decompor em Stories e Tasks'          },
 ];
 
 export const ALL_LABELS = [...TYPE_LABELS, ...PRIORITY_LABELS, ...TRIGGER_LABELS];

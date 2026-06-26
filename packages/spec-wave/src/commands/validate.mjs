@@ -114,7 +114,9 @@ export async function validate({ issueNumber }) {
     process.exit(1);
   }
 
-  // Validação passou: move a issue para "🎉 Done" no board (best-effort).
+  // Validação passou: adiciona label plan-approved e move board para Done.
+  await addLabel(token, owner, repo, parseInt(issueNumber, 10), 'spec-wave:plan-approved');
+
   let doneOk = false;
   try {
     await moveToDone(token, issue);
