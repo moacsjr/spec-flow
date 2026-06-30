@@ -1,7 +1,7 @@
 ---
 name: spec-wave
-description: "Use when the user wants to set up a spec-driven GitHub workflow, create a Feature issue, generate spec.md or plan.md, decompose a Feature into Stories/Tasks, or write RFC documentation. Implements the RFC-001 workflow with GitHub Projects v2, labels, and AI-powered GitHub Actions."
-argument-hint: "[info|setup|issue|feature|spec|plan|ready|decompose|implement|uninstall|rfc] [target]"
+description: "Use when the user wants to set up a spec-driven GitHub workflow, create a Feature issue, generate spec.md or plan.md, decompose a Feature into Stories/Tasks, write RFC documentation, or audit and fix a Pull Request. Implements the RFC-001 workflow with GitHub Projects v2, labels, and AI-powered GitHub Actions."
+argument-hint: "[info|setup|issue|feature|spec|plan|ready|decompose|implement|uninstall|rfc|fix-pr] [target]"
 user-invocable: true
 allowed-tools:
   - Bash(npx spec-wave *)
@@ -9,8 +9,16 @@ allowed-tools:
   - Bash(gh project *)
   - Bash(gh repo view *)
   - Bash(gh auth status)
+  - Bash(gh pr *)
+  - Bash(gh api *)
+  - Bash(git add *)
+  - Bash(git commit *)
+  - Bash(git push *)
+  - Bash(git checkout *)
   - Read
+  - Edit
   - Write
+  - Agent
 ---
 
 # spec-wave Skill
@@ -387,6 +395,112 @@ Crie um documento RFC seguindo a estrutura do RFC-001.
    ```bash
    gh issue create --title "[RFC] <título>" --label "[RFC]"
    ```
+
+---
+
+### `/spec-wave fix-pr <número-do-pr>`
+
+Audita um Pull Request e corrige automaticamente os problemas encontrados — segurança, arquitetura, infraestrutura e qualidade de código. Cada fix vira um commit separado no branch do PR. Cada review comment recebe uma resposta com o hash do commit.
+
+**Pré-requisitos:** `.spec-wave.json` deve existir (para resolver `owner/repo`). Token com permissão de push no branch do PR.
+
+**Passos:**
+
+1. **Resolver contexto**
+   - Leia `.spec-wave.json` para obter `owner` e `repo`.
+   - Confirme o número do PR com o usuário se não vier como argumento.
+
+2. **Coletar dados do PR**
+   ```bash
+   gh pr view <número> --json number,title,headRefName,body,changedFiles
+   gh pr diff <número>
+   gh api repos/<owner>/<repo>/pulls/<número>/comments
+   gh api repos/<owner>/<repo>/pulls/<número>/reviews
+   ```
+   - Liste todos os arquivos alterados.
+   - Colete todos os review comments (inline) e reviews gerais.
+
+3. **Fazer checkout no branch do PR**
+   ```bash
+   gh pr checkout <número>
+   ```
+
+4. **Varredura de problemas** — para cada categoria abaixo, leia os arquivos alterados e identifique issues:
+
+   | Categoria | O que procurar |
+   |-----------|----------------|
+   | **Segurança** | Credenciais hardcoded, secrets/API keys expostas, configs inseguras, injeção SQL/XSS |
+   | **Arquitetura** | Dependências circulares, exports faltando, wiring incompleto, violações de camada |
+   | **Infraestrutura** | OIDC mal configurado, IAM permissivo demais, Dockerfile sem usuário não-root, state remoto ausente |
+   | **Qualidade** | sync-over-async, validação ausente, operações não idempotentes, error handling ausente |
+
+   Se não houver review comments manuais, use o agente `caveman:cavecrew-reviewer` para detecção automatizada:
+   ```
+   Agent(caveman:cavecrew-reviewer) → diff do PR + arquivos alterados
+   ```
+
+5. **Para cada problema encontrado:**
+   a. Leia o(s) arquivo(s) afetado(s) com Read
+   b. Aplique o fix com Edit
+   c. Faça commit separado:
+      ```bash
+      git add <arquivo>
+      git commit -m "fix: <problema> (issue #<N>)
+
+      <causa raiz>
+
+      Solution: <descrição do fix>"
+      ```
+   d. Push ao branch do PR:
+      ```bash
+      git push
+      ```
+
+6. **Responder aos review comments** — para cada comment inline do PR:
+   ```bash
+   gh api repos/<owner>/<repo>/pulls/<número>/comments/<comment-id>/replies \
+     -f body="✅ **FIXED** — commit **<HASH>**
+
+   \`\`\`<linguagem>
+   <trecho corrigido>
+   \`\`\`
+
+   <explicação do fix>"
+   ```
+
+7. **Comentário de sumário no PR**
+   ```bash
+   gh pr comment <número> --body "<sumário>"
+   ```
+   Formato do sumário:
+   ```
+   ## 🔍 PR Audit — Spec Wave
+
+   ### Problemas encontrados e corrigidos
+
+   | # | Severidade | Categoria | Problema | Commit |
+   |---|-----------|-----------|---------|--------|
+   | 1 | 🔴 Critical | Segurança | Credencial hardcoded em config.js | abc1234 |
+   | 2 | 🟡 Medium | Qualidade | Operação não idempotente em createOrder | def5678 |
+
+   ### Commits criados
+   - `abc1234` fix: credencial hardcoded removida (issue #1)
+   - `def5678` fix: idempotency key adicionada em createOrder (issue #2)
+
+   **Total:** <N> problema(s) encontrado(s) e corrigido(s).
+   ```
+
+**Output esperado:**
+- Lista de issues (severidade + impacto)
+- Lista de commits criados (hash + mensagem)
+- Confirmação de replies postadas nos review comments
+- Estado final do PR
+
+**Severidade:**
+- 🔴 Critical — segurança, dados expostos, falha em produção
+- 🟠 High — bug que afeta usuários, arquitetura quebrada
+- 🟡 Medium — qualidade, manutenibilidade, performance
+- 🔵 Low — estilo, naming, comentários
 
 ---
 
